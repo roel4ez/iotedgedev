@@ -5,6 +5,7 @@ import click
 
 PARAMS_WITH_VALUES = {'edge_runtime_version'}
 
+
 def with_telemetry(func):
     @wraps(func)
     def _wrapped_func(*args, **kwargs):
@@ -94,7 +95,6 @@ def module_template_options(func):
                                 show_default=True,
                                 help="(Java modules only) Specify the groupId")
     return template_dec(group_id_dec(func))
-
 
 def add_module_options(envvars, init=False):
     """Decorate commands which involve adding modules to the solution."""

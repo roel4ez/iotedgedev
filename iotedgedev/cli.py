@@ -1,5 +1,6 @@
 import hashlib
 import socket
+import traceback
 import sys
 
 import click
@@ -49,9 +50,15 @@ def simulator():
     pass
 
 
+iothubCount = 0
+
+
 @main.group(context_settings=CONTEXT_SETTINGS, help="Manage IoT Hub and IoT Edge devices", order=1)
 @with_telemetry
 def iothub():
+    global iothubCount
+    iothubCount += 1
+    output.status(f"IoT Hub {iothubCount}")
     pass
 
 
@@ -747,6 +754,28 @@ def setup_iothub(credentials,
             envvars.save_envvar("IOTHUB_CONNECTION_STRING", envvars.IOTHUB_CONNECTION_STRING)
             envvars.save_envvar("DEVICE_CONNECTION_STRING", envvars.DEVICE_CONNECTION_STRING)
             output.info("Updated current .env file")
+
+
+count = 0
+
+
+def foo_options():
+    global count
+    count += 1
+    trace = traceback.format_stack()
+    output.header(f"BAR {count}")
+
+
+@iothub.command(help="test method",
+                name="foo")
+@click.option('--subscription',
+              # envvar=envvars.get_envvar_key_if_val("SUBSCRIPTION_ID"),
+              default=lambda: foo_options(),
+              required=True,
+              prompt="Select an Azure Subscription Name or Id:",
+              help="The Azure Subscription Name or Id.")
+def iothub_foo(subscription):
+    output.info("bar")
 
 
 @docker.command(context_settings=CONTEXT_SETTINGS,
