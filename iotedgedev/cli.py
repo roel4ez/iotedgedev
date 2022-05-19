@@ -639,7 +639,7 @@ def list_resource_groups_and_set_default():
     return "iotedgedev-rg"
 
 
-def list_subscriptions_and_set_default():
+def set_default_subscription():
     global default_subscriptionId
     # first verify that we have an existing auth token in cache, otherwise login using interactive
     if not default_subscriptionId:
@@ -648,12 +648,18 @@ def list_subscriptions_and_set_default():
         if not default_subscriptionId and not azure_cli.login_interactive():
             sys.exit()
 
-    output.header("SUBSCRIPTION")
-
-    if not azure_cli.list_subscriptions():
-        sys.exit()
     default_subscriptionId = azure_cli.get_default_subscription()
     return default_subscriptionId
+
+
+# this needs to return a list of subscriptions as a string that can be printed at the prompt
+def get_subscription_list_prompt():
+    subscriptions = azure_cli.list_subscriptions()
+    if not subscriptions:
+        sys.exit()
+    
+    subscriptions += "\nSelect an Azure Subscription Name or Id:"
+    return subscriptions
 
 
 def header_and_default(header, default, default2=None):
@@ -684,10 +690,10 @@ def header_and_default(header, default, default2=None):
               help="Enter Azure Service Principal Credentials (username password tenant).")
 @click.option('--subscription',
               envvar=envvars.get_envvar_key_if_val("SUBSCRIPTION_ID"),
-              default=lambda: list_subscriptions_and_set_default(),
+              default=lambda: set_default_subscription(),
               required=True,
               callback=validate_option,
-              prompt="Select an Azure Subscription Name or Id:",
+              prompt=get_subscription_list_prompt(),
               help="The Azure Subscription Name or Id.")
 @click.option('--resource-group-location',
               envvar=envvars.get_envvar_key_if_val("RESOURCE_GROUP_LOCATION"),
@@ -754,28 +760,6 @@ def setup_iothub(credentials,
             envvars.save_envvar("IOTHUB_CONNECTION_STRING", envvars.IOTHUB_CONNECTION_STRING)
             envvars.save_envvar("DEVICE_CONNECTION_STRING", envvars.DEVICE_CONNECTION_STRING)
             output.info("Updated current .env file")
-
-
-count = 0
-
-
-def foo_options():
-    global count
-    count += 1
-    trace = traceback.format_stack()
-    output.header(f"BAR {count}")
-
-
-@iothub.command(help="test method",
-                name="foo")
-@click.option('--subscription',
-              # envvar=envvars.get_envvar_key_if_val("SUBSCRIPTION_ID"),
-              default=lambda: foo_options(),
-              required=True,
-              prompt="Select an Azure Subscription Name or Id:",
-              help="The Azure Subscription Name or Id.")
-def iothub_foo(subscription):
-    output.info("bar")
 
 
 @docker.command(context_settings=CONTEXT_SETTINGS,

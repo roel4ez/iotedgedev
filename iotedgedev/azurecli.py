@@ -79,8 +79,7 @@ class AzureCli:
             try:
                 if timer:
                     timer.start()
-
-                if not monitor_events:
+                elif not monitor_events:
                     stdout_data, stderr_data = process.communicate()
                 else:
                     return self._handle_monitor_event_process(process)
@@ -107,9 +106,6 @@ class AzureCli:
                     self.output.error(error_message)
                     self.output.line()
                 return False
-
-            if not stdout_io and not stderr_io:
-                self.output.line()
 
         except Exception as e:
             if error_message:
@@ -259,8 +255,12 @@ class AzureCli:
 
     def list_subscriptions(self):
         self.output.status("Retrieving Azure Subscriptions...")
-        return self.invoke_az_cli_outproc(["account", "list", "--all", "--query", "[].{\"Subscription Name\":name, Id:id}", "--out", "table"],
-                                          "Error while trying to list Azure subscriptions.")
+
+        with output_io_cls() as io:
+            self.invoke_az_cli_outproc(["account", "list", "--all", "--query", "[].{\"Subscription Name\":name, Id:id}", "--out", "table"],
+                                        "Error while trying to list Azure subscriptions.", stdout_io=io)
+
+            return io.getvalue()
 
     def get_default_subscription(self):
 
