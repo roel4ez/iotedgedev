@@ -50,15 +50,9 @@ def simulator():
     pass
 
 
-iothubCount = 0
-
-
 @main.group(context_settings=CONTEXT_SETTINGS, help="Manage IoT Hub and IoT Edge devices", order=1)
 @with_telemetry
 def iothub():
-    global iothubCount
-    iothubCount += 1
-    output.status(f"IoT Hub {iothubCount}")
     pass
 
 
@@ -621,24 +615,6 @@ def list_edge_devices_and_set_default():
     return "iotedgedev-edgedevice"
 
 
-def list_iot_hubs_and_set_default():
-    if not azure_cli.list_iot_hubs(envvars.RESOURCE_GROUP_NAME):
-        sys.exit()
-
-    first_iothub = azure_cli.get_first_iothub(envvars.RESOURCE_GROUP_NAME)
-    if first_iothub:
-        return first_iothub
-    else:
-        subscription_rg_hash = hashlib.sha1((default_subscriptionId + envvars.RESOURCE_GROUP_NAME).encode('utf-8')).hexdigest()[:6]
-        return "iotedgedev-iothub-" + subscription_rg_hash
-
-
-def list_resource_groups_and_set_default():
-    if not azure_cli.list_resource_groups():
-        sys.exit()
-    return "iotedgedev-rg"
-
-
 def set_default_subscription():
     global default_subscriptionId
     # first verify that we have an existing auth token in cache, otherwise login using interactive
@@ -652,21 +628,52 @@ def set_default_subscription():
     return default_subscriptionId
 
 
-# this needs to return a list of subscriptions as a string that can be printed at the prompt
+# this returns a list of subscriptions, as a formatted string, that can be printed at the prompt
 def get_subscription_list_prompt():
-    subscriptions = azure_cli.list_subscriptions()
+    subscriptions = "\n"
+    subscriptions += azure_cli.list_subscriptions()
     if not subscriptions:
         sys.exit()
-    
-    subscriptions += "\nSelect an Azure Subscription Name or Id:"
+
+    subscriptions += "\n\nSelect an Azure Subscription Name or Id:"
     return subscriptions
 
 
-def header_and_default(header, default, default2=None):
-    output.header(header)
-    if default == '' and default2 is not None:
-        return default2
-    return default
+def get_location_list_prompt():
+    locations = ['australiaeast', 'australiasoutheast', 'brazilsouth', 'canadacentral', 'canadaeast', 'centralindia', 'centralus', 'eastasia', 'eastus', 'eastus2',
+                 'japanwest', 'japaneast', 'northeurope', 'northcentralus', 'southindia', 'uksouth', 'ukwest', 'westus', 'westeurope', 'southcentralus', 'westcentralus', 'westus2']
+    prompt = ", ".join(locations)
+    prompt += "\nEnter a Resource Group Location:"
+    return prompt
+
+
+def get_resource_groups_prompt():
+    resource_groups = "\n"
+    resource_groups += azure_cli.list_resource_groups()
+    if not resource_groups:
+        sys.exit()
+
+    resource_groups += "\n\nEnter Resource Group Name (Creates a new Resource Group if not found):"
+    return resource_groups
+
+
+def set_default_iot_hub():
+    first_iothub = azure_cli.get_first_iothub(envvars.RESOURCE_GROUP_NAME)
+    if first_iothub:
+        return first_iothub
+    else:
+        subscription_rg_hash = hashlib.sha1((default_subscriptionId + envvars.RESOURCE_GROUP_NAME).encode('utf-8')).hexdigest()[:6]
+        return "iotedgedev-iothub-" + subscription_rg_hash
+
+
+def get_iothub_list_prompt():
+    iothubs = "\n"
+    iothubs += azure_cli.list_iot_hubs(envvars.RESOURCE_GROUP_NAME)
+    if not iothubs:
+        sys.exit()
+
+    iothubs += "\n\nEnter IoT Hub Name (Creates a new IoT Hub if not found):"
+    return iothubs
 
 
 @iothub.command(context_settings=CONTEXT_SETTINGS,
@@ -698,35 +705,34 @@ def header_and_default(header, default, default2=None):
 @click.option('--resource-group-location',
               envvar=envvars.get_envvar_key_if_val("RESOURCE_GROUP_LOCATION"),
               required=True,
-              default=lambda: header_and_default('RESOURCE GROUP LOCATION', envvars.RESOURCE_GROUP_LOCATION, 'westus'),
-              type=click.Choice(['australiaeast', 'australiasoutheast', 'brazilsouth', 'canadacentral', 'canadaeast', 'centralindia', 'centralus', 'eastasia', 'eastus', 'eastus2',
-                                 'japanwest', 'japaneast', 'northeurope', 'northcentralus', 'southindia', 'uksouth', 'ukwest', 'westus', 'westeurope', 'southcentralus', 'westcentralus', 'westus2']),
+              default="westus",
+              type=str,
               callback=validate_option,
-              prompt="Enter a Resource Group Location:",
+              prompt=get_location_list_prompt(),
               help="The Resource Group Location.")
 @click.option('--resource-group-name',
               envvar=envvars.get_envvar_key_if_val("RESOURCE_GROUP_NAME"),
               required=True,
-              default=lambda: list_resource_groups_and_set_default(),
+              default="iotedgedev-rg",
               type=str,
               callback=validate_option,
-              prompt="Enter Resource Group Name (Creates a new Resource Group if not found):",
+              prompt=get_resource_groups_prompt(),
               help="The Resource Group Name (Creates a new Resource Group if not found).")
 @click.option('--iothub-sku',
               envvar=envvars.get_envvar_key_if_val("IOTHUB_SKU"),
               required=True,
-              default=lambda: header_and_default('IOTHUB SKU', 'F1'),
+              default="F1",
               type=click.Choice(['F1', 'S1', 'S2', 'S3']),
               callback=validate_option,
-              prompt="Enter IoT Hub SKU (F1|S1|S2|S3):",
+              prompt="Enter IoT Hub SKU:",
               help="The IoT Hub SKU.")
 @click.option('--iothub-name',
               envvar=envvars.get_envvar_key_if_val("IOTHUB_NAME"),
               required=True,
-              default=lambda: list_iot_hubs_and_set_default(),
+              default=lambda: set_default_iot_hub(),
               type=str,
               callback=validate_option,
-              prompt='Enter the IoT Hub Name (Creates a new IoT Hub if not found):',
+              prompt=get_iothub_list_prompt(),
               help='The IoT Hub Name (Creates a new IoT Hub if not found).')
 @click.option('--edge-device-id',
               envvar=envvars.get_envvar_key_if_val("EDGE_DEVICE_ID"),

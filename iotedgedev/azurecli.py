@@ -254,11 +254,12 @@ class AzureCli:
         return self.invoke_az_cli_outproc(["account", "clear"])
 
     def list_subscriptions(self):
+        self.output.header("SUBSCRIPTIONS")
         self.output.status("Retrieving Azure Subscriptions...")
 
         with output_io_cls() as io:
             self.invoke_az_cli_outproc(["account", "list", "--all", "--query", "[].{\"Subscription Name\":name, Id:id}", "--out", "table"],
-                                        "Error while trying to list Azure subscriptions.", stdout_io=io)
+                                       "Error while trying to list Azure subscriptions.", stdout_io=io)
 
             return io.getvalue()
 
@@ -354,13 +355,10 @@ class AzureCli:
         self.output.status("Retrieving Resource Groups...")
 
         with output_io_cls() as io:
+            self.invoke_az_cli_outproc(["group", "list", "--query", "[].{\"Resource Group\":name, Location:location}", "--out", "table"],
+                                       "Could not list the Resource Groups.", stdout_io=io)
 
-            result = self.invoke_az_cli_outproc(["group", "list", "--query", "[].{\"Resource Group\":name, Location:location}", "--out", "table"], "Could not list the Resource Groups.", stdout_io=io)
-
-            self.output.prompt(io.getvalue())
-            self.output.line()
-
-        return result
+            return io.getvalue()
 
     def set_modules(self, config: str, device_id: str, connection_string: IoTHubConnectionString):
         self.output.status(f"Deploying '{config}' to '{device_id}'...")
@@ -440,8 +438,11 @@ class AzureCli:
         self.output.header("IOT HUB")
         self.output.status(f("Retrieving IoT Hubs in '{resource_group}'..."))
 
-        return self.invoke_az_cli_outproc(["iot", "hub", "list", "--resource-group", resource_group, "--query", "[].{\"IoT Hub\":name}", "--out", "table"],
-                                          f("Could not list the IoT Hubs in {resource_group}."))
+        with output_io_cls() as io:
+            self.invoke_az_cli_outproc(["iot", "hub", "list", "--resource-group", resource_group, "--query",
+                                       "[].{\"IoT Hub\":name}", "--out", "table"], f("Could not list the IoT Hubs in {resource_group}."), stdout_io=io)
+
+            return io.getvalue()
 
     def iothub_exists(self, value, resource_group):
         self.output.status(

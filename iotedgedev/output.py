@@ -31,6 +31,11 @@ class Output:
             self.echo(m, color='white')
             self.line()
 
+    def header_as_text(self, text):
+        s = "======== {0} ========".format(text).upper()
+        m = "="*len(s)
+        return m + "\n" + s + "\n" + m + "\n"
+
     def param(self, text, value, status, suppress):
         if value and not suppress:
             self.header("SETTING " + text)
